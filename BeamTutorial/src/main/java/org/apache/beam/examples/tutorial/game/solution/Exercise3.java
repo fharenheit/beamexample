@@ -36,7 +36,7 @@ import org.joda.time.Duration;
 /**
  * This pipeline extends {@link Exercise1} by windowing each of the input events
  * based on the event timestamp.
- *
+ * <p>
  * <p>
  * This pipeline processes data collected from gaming events in batch, building
  * on {@link Exercise1} but using fixed windows. It calculates the sum of scores
@@ -51,80 +51,80 @@ import org.joda.time.Duration;
  */
 public class Exercise3 {
 
-  /**
-   * A transform to compute the WindowedTeamScore.
-   */
-  public static class WindowedTeamScore
-      extends PTransform<PCollection<GameActionInfo>, PCollection<KV<String, Integer>>> {
+    /**
+     * A transform to compute the WindowedTeamScore.
+     */
+    public static class WindowedTeamScore
+        extends PTransform<PCollection<GameActionInfo>, PCollection<KV<String, Integer>>> {
 
-    private Duration duration;
+        private Duration duration;
 
-    public WindowedTeamScore(Duration duration) {
-      this.duration = duration;
+        public WindowedTeamScore(Duration duration) {
+            this.duration = duration;
+        }
+
+        @Override
+        public PCollection<KV<String, Integer>> apply(PCollection<GameActionInfo> input) {
+            // [START EXERCISE 3]:
+            // JavaDoc: https://cloud.google.com/dataflow/java-sdk/JavaDoc
+            // Developer Docs: https://cloud.google.com/dataflow/model/windowing
+            //
+            return input
+                // Window.into() takes a WindowFn and returns a PTransform that
+                // applies windowing
+                // to the PCollection. FixedWindows.of() returns a WindowFn that
+                // assigns elements
+                // to windows of a fixed size. Use these methods to apply fixed
+                // windows of size
+                // this.duration to the PCollection.
+                .apply(Window.into(FixedWindows.of(duration)))
+                // Remember the ExtractAndSumScore PTransform from Exercise 1? We
+                // parameterized
+                // it over the KeyField. Use it here to compute the team scores.
+                .apply("ExtractUserScore", new ExtractAndSumScore(KeyField.TEAM));
+            // [END EXERCISE 3]
+        }
     }
 
-    @Override
-    public PCollection<KV<String, Integer>> apply(PCollection<GameActionInfo> input) {
-      // [START EXERCISE 3]:
-      // JavaDoc: https://cloud.google.com/dataflow/java-sdk/JavaDoc
-      // Developer Docs: https://cloud.google.com/dataflow/model/windowing
-      //
-      return input
-          // Window.into() takes a WindowFn and returns a PTransform that
-          // applies windowing
-          // to the PCollection. FixedWindows.of() returns a WindowFn that
-          // assigns elements
-          // to windows of a fixed size. Use these methods to apply fixed
-          // windows of size
-          // this.duration to the PCollection.
-          .apply(Window.into(FixedWindows.of(duration)))
-          // Remember the ExtractAndSumScore PTransform from Exercise 1? We
-          // parameterized
-          // it over the KeyField. Use it here to compute the team scores.
-          .apply("ExtractUserScore", new ExtractAndSumScore(KeyField.TEAM));
-      // [END EXERCISE 3]
-    }
-  }
+    /**
+     * Run a batch pipeline to do windowed analysis of the data.
+     */
+    public static void main(String[] args) throws Exception {
+        // Begin constructing a pipeline configured by commandline flags.
+        ExerciseOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(ExerciseOptions.class);
+        Pipeline pipeline = Pipeline.create(options);
 
-  /**
-   * Run a batch pipeline to do windowed analysis of the data.
-   */
-  public static void main(String[] args) throws Exception {
-    // Begin constructing a pipeline configured by commandline flags.
-    ExerciseOptions options = PipelineOptionsFactory.fromArgs(args).withValidation().as(ExerciseOptions.class);
-    Pipeline pipeline = Pipeline.create(options);
+        pipeline
+            // Read a bounded set of generated data
+            .apply(new Input.BoundedGenerator())
+            // Extract and sum the windowed teamname/scores
+            .apply(new WindowedTeamScore(Duration.standardMinutes(1)))
+            // Write the hourly team scores to the "hourly_team_score" table
+            .apply(new Output.WriteHourlyTeamScore());
 
-    pipeline
-        // Read a bounded set of generated data
-        .apply(new Input.BoundedGenerator())
-        // Extract and sum the windowed teamname/scores
-        .apply(new WindowedTeamScore(Duration.standardMinutes(1)))
-        // Write the hourly team scores to the "hourly_team_score" table
-        .apply(new Output.WriteHourlyTeamScore());
-
-    pipeline.run();
-  }
-
-  /**
-   * A transform to extract key/score information from GameActionInfo, and sum
-   * the scores. The constructor arg determines whether 'team' or 'user' info is
-   * extracted.
-   */
-  private static class ExtractAndSumScore
-      extends PTransform<PCollection<GameActionInfo>, PCollection<KV<String, Integer>>> {
-
-    private final KeyField field;
-
-    ExtractAndSumScore(KeyField field) {
-      this.field = field;
+        pipeline.run();
     }
 
-    @Override
-    public PCollection<KV<String, Integer>> apply(PCollection<GameActionInfo> gameInfo) {
-      return gameInfo
-          .apply(MapElements.via((GameActionInfo gInfo) -> KV.of(field.extract(gInfo), gInfo.getScore()))
-              .withOutputType(TypeDescriptors.kvs(TypeDescriptors.strings(), TypeDescriptors.integers())))
-          .apply(Sum.<String>integersPerKey());
+    /**
+     * A transform to extract key/score information from GameActionInfo, and sum
+     * the scores. The constructor arg determines whether 'team' or 'user' info is
+     * extracted.
+     */
+    private static class ExtractAndSumScore
+        extends PTransform<PCollection<GameActionInfo>, PCollection<KV<String, Integer>>> {
+
+        private final KeyField field;
+
+        ExtractAndSumScore(KeyField field) {
+            this.field = field;
+        }
+
+        @Override
+        public PCollection<KV<String, Integer>> apply(PCollection<GameActionInfo> gameInfo) {
+            return gameInfo
+                .apply(MapElements.via((GameActionInfo gInfo) -> KV.of(field.extract(gInfo), gInfo.getScore()))
+                    .withOutputType(TypeDescriptors.kvs(TypeDescriptors.strings(), TypeDescriptors.integers())))
+                .apply(Sum.<String>integersPerKey());
+        }
     }
-  }
 }

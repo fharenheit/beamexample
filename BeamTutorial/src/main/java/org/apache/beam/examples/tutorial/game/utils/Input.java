@@ -29,23 +29,23 @@ import org.apache.beam.sdk.values.PCollection;
  */
 public class Input {
 
-  /**
-   * Generate a bounded {link PCollection} of data.
-   */
-  public static class BoundedGenerator extends PTransform<PBegin, PCollection<GameActionInfo>> {
-    @Override
-    public PCollection<GameActionInfo> apply(PBegin input) {
-      return input.apply(Read.from(new InjectorBoundedSource(100, 180, 200)));
+    /**
+     * Generate a bounded {link PCollection} of data.
+     */
+    public static class BoundedGenerator extends PTransform<PBegin, PCollection<GameActionInfo>> {
+        @Override
+        public PCollection<GameActionInfo> apply(PBegin input) {
+            return input.apply(Read.from(new InjectorBoundedSource(100, 180, 200)));
+        }
     }
-  }
 
-  /**
-   * Generate an unbounded {@link PCollection} of data.
-   */
-  public static class UnboundedGenerator extends PTransform<PBegin, PCollection<GameActionInfo>> {
-    @Override
-    public PCollection<GameActionInfo> apply(PBegin input) {
-      return input.apply(Read.from(new InjectorUnboundedSource()));
+    /**
+     * Generate an unbounded {@link PCollection} of data.
+     */
+    public static class UnboundedGenerator extends PTransform<PBegin, PCollection<GameActionInfo>> {
+        @Override
+        public PCollection<GameActionInfo> apply(PBegin input) {
+            return input.apply(Read.from(new InjectorUnboundedSource()));
+        }
     }
-  }
 }
